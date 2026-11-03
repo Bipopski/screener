@@ -1,0 +1,24 @@
+# Data, caches and credentials — never committed
+*.sqlite
+*.sqlite-journal
+*.xlsx
+*.csv
+!examples/**/*.csv
+*_cache.json
+*cache*.json
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local parity check against the private research tree (paths are personal)
+scripts/verify_parity.py
