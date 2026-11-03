@@ -20,6 +20,10 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
+yahoo = ["yfinance>=0.2"]
+
+[project.scripts]
+screener = "screener.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/screener"]

@@ -22,3 +22,6 @@ build/
 
 # Local parity check against the private research tree (paths are personal)
 scripts/verify_parity.py
+
+# Local parity scripts (personal paths)
+scripts/parity_engine.py
