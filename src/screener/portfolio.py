@@ -33,6 +33,57 @@ def target_weights(tickers, percentiles: dict, lam: float = VALUATION_LAMBDA,
     return {t: w / total for t, w in raw.items()}
 
 
+def plan_contribution(cash: float, target: list[str], percentiles: dict,
+                      held: set[str] | None = None, lam: float = VALUATION_LAMBDA,
+                      floor: float = MIN_WEIGHT, skip_smallest: bool = True) -> dict[str, float]:
+    """Split this month's cash across the target list by valuation weight.
+
+    This is the mechanism the published results use: every contribution is
+    divided by ``w = max(floor, 1 - lam * (pct - 50) / 50)``, so cheaper names
+    receive more of *new money*. The book is never rebalanced to target weights —
+    positions drift with performance, and a position that has run gets no
+    trimming (and no top-up beyond its share of the inflow).
+
+    A name entering the book for the first time takes an equal share of the
+    contribution before the valuation split, so a new position is never funded
+    with a few złoty while older ones absorb the deposit.
+
+    ``skip_smallest`` drops the smallest slice and renormalises the rest — an
+    execution rule that keeps the last position buyable at any broker.
+    """
+    if cash <= 0 or not target:
+        return {}
+    held = held or set()
+    plan: dict[str, float] = {}
+    cash_left = cash
+
+    new_names = [t for t in target if t not in held]
+    if new_names:
+        share = cash / len(target)
+        for ticker in new_names:
+            take = min(share, cash_left)
+            if take <= 0:
+                break
+            plan[ticker] = plan.get(ticker, 0.0) + take
+            cash_left -= take
+
+    if cash_left > 0:
+        weights = target_weights(target, percentiles, lam=lam, floor=floor)
+        # the reference implementation inserted the split in descending weight
+        # order; the order decides which slice is dropped when two are tied
+        for ticker, weight in sorted(weights.items(), key=lambda kv: -kv[1]):
+            plan[ticker] = plan.get(ticker, 0.0) + cash_left * weight
+
+    if skip_smallest and len(plan) > 1:
+        smallest = min(plan, key=plan.get)
+        budget = sum(plan.values())
+        plan.pop(smallest)
+        rest = sum(plan.values())
+        if rest > 0:
+            plan = {t: amount * budget / rest for t, amount in plan.items()}
+    return {t: amount for t, amount in plan.items() if amount > 0}
+
+
 def allocate(cash: float, target_values: dict[str, float], held_values: dict[str, float],
              skip_smallest: bool = True) -> dict[str, float]:
     """Split ``cash`` across the positions that are below their target value.

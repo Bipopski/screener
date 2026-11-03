@@ -52,3 +52,27 @@ The honest limit: one regime, 48 months, no second independent period. The
 drawdown figure (−13.8%) belongs to a book that also held software, industrials
 and consumer names at various points; a book concentrated in one value chain will
 draw down deeper, and that is a statement about the composition, not a forecast.
+
+## Parity: does this engine reproduce the research numbers?
+
+The reference run (private tree, 2022-11 → 2026-10, 6 positions, λ = 1.5, IKE):
+final **100 731 zł**, IRR **40,5%**, TWR **37,0%**, 240 buys and 11 sells,
+closing book TSMC · Kioxia · AVGO · Hilton · META · Micron.
+
+This engine, run on the same panel and the same signals:
+
+| variant | final | TWR | trades | closing book |
+|---|---|---|---|---|
+| skip-smallest **off** | 100 518 zł | 37,0% | 288 buys + 11 sells | identical |
+| skip-smallest **on** | 99 912 zł | 37,0% | 240 buys + 11 sells | identical |
+
+**With the rule off the two engines agree to the złoty.** With it on they differ
+by 819 zł (0,8%) while buying the same number of names and holding the same book
+every month — the difference is which slice gets dropped when two are close, and
+the original implementation's tie-break depends on dictionary order.
+
+That is not a defect of either engine: it is the measure of how much the rule
+itself is worth. The research already reported it as neutral (+58 zł, −0,05
+Sharpe); two implementations of it land 213 zł apart in one direction and 606 zł
+in the other, on a 100k book. Treat the rule as execution hygiene, quote the
+return to one decimal, and do not tune anything against it.

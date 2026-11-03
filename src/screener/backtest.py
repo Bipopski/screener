@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 from .account import Account, Costs
 from .config import EXIT_PERCENTILE, PORTFOLIO_SIZE, VALUATION_LAMBDA
-from .portfolio import allocate, target_weights
+from .portfolio import allocate, plan_contribution, target_weights
 from .xirr import dates_of, twr, xirr
 
 
@@ -150,7 +150,7 @@ def run_backtest(signals: dict[str, dict[str, Signal]], prices: dict[str, dict[s
                  contrib: float = 1000.0, n: int = PORTFOLIO_SIZE,
                  lam: float = VALUATION_LAMBDA, q_min: float = 70.0,
                  exit_percentile: float = EXIT_PERCENTILE,
-                 skip_smallest: bool = True) -> Result:
+                 allocation: str = "prop", skip_smallest: bool = True) -> Result:
     """Run the strategy month by month and return the book's history."""
     foreign = foreign or set()
     acc = Account(costs=costs or Costs())
@@ -168,14 +168,24 @@ def run_backtest(signals: dict[str, dict[str, Signal]], prices: dict[str, dict[s
         for ticker in exits:
             acc.sell(ticker, month_prices.get(ticker, 0.0), ticker in foreign)
 
-        held_values = {t: p.shares * month_prices[t]
-                       for t, p in acc.positions.items() if month_prices.get(t)}
-        total = acc.market_value(month_prices)
-        weights = target_weights(target, {t: (month_signals.get(t).val_pct
-                                              if month_signals.get(t) else None)
-                                          for t in target}, lam=lam)
-        target_values = {t: total * w for t, w in weights.items()}
-        plan = allocate(acc.cash, target_values, held_values, skip_smallest=skip_smallest)
+        tradeable = [t for t in target if month_prices.get(t)]
+        percentiles = {t: (month_signals.get(t).val_pct if month_signals.get(t) else None)
+                       for t in tradeable}
+        if allocation == "prop":
+            # new money split by valuation weight — the tested mechanism
+            plan = plan_contribution(acc.cash, tradeable, percentiles,
+                                     held=set(acc.positions), lam=lam,
+                                     skip_smallest=skip_smallest)
+        elif allocation == "deficit":
+            total = acc.market_value(month_prices)
+            weights = target_weights(tradeable, percentiles, lam=lam)
+            target_values = {t: total * w for t, w in weights.items()}
+            held_values = {t: p.shares * month_prices[t]
+                           for t, p in acc.positions.items() if month_prices.get(t)}
+            plan = allocate(acc.cash, target_values, held_values,
+                            skip_smallest=skip_smallest)
+        else:
+            raise ValueError(f"unknown allocation mode: {allocation}")
         execute(acc, plan, month_prices, foreign)
 
         book = value(acc, month_prices)
