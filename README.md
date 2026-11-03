@@ -25,19 +25,20 @@ disjoint blocks rather than one lucky path.
 
 ## Status
 
-Early. What exists today is the model core, moved from a working research
-codebase and covered by tests:
+Working core, tested end to end on a synthetic dataset:
 
 | module | what it does |
 |---|---|
 | `screener.quality` | the eight-condition sieve, no partial credit |
 | `screener.scoring` | growth score 0–100 on dynamic percentile bounds |
+| `screener.portfolio` | weights from valuation history, cash split by deficit |
+| `screener.account` | ledger: cash, positions, units, contributions + P&L = value |
+| `screener.backtest` | monthly loop: decision → execution → valuation → accounting |
 | `screener.xirr` | XIRR on real dates and time-weighted return |
 | `screener.config` | every threshold and weight, in one place |
+| `screener.data.csv` | the demo/CSV adapter (a free or paid feed plugs in here) |
 
-Next: universe building, portfolio construction, the monthly backtest loop and a
-CLI — each landing with tests and a demo dataset, so the repo runs after a clone
-without any paid data account.
+Next: a free-data adapter, a CLI (`scan`, `backtest`, `audit`), and CI.
 
 ## Quickstart
 
@@ -45,6 +46,22 @@ without any paid data account.
 uv venv && uv pip install -e ".[dev]"
 pytest
 ```
+
+Run the engine on the bundled demo (25 synthetic tickers × 60 months):
+
+```python
+from screener import Costs, load_demo, run_backtest
+
+signals, prices = load_demo("examples/demo")
+result = run_backtest(signals, prices, costs=Costs(wrapper="ike"),
+                      contrib=1000.0, n=6)
+
+print(f"{result.final:,.0f} zł from {result.invested:,.0f} zł invested")
+print(f"TWR {result.twr:.1%} · IRR {result.irr:.1%} · max DD {result.max_drawdown:.1%}")
+```
+
+The accounting identity is checked inside the loop every month — a run that
+loses a fee somewhere raises instead of returning a plausible number.
 
 ## Units, because they bite
 
