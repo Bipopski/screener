@@ -13,7 +13,7 @@ from .quality import TRELA_FILTERS, quality_score
 from .scoring import pctile, score_all
 from .xirr import dates_of, twr, xirr, xirr_from_result
 
-__version__ = "0.2.0"
+__version__ = "0.1.0"
 
 __all__ = [
     "Account",
