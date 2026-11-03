@@ -22,6 +22,7 @@ from .backtest import run_backtest
 from .data.csv import load_demo
 from .quality import quality_score
 from .scoring import score_all
+from .universe import CURRENCY, build, write_csv
 
 DEMO = Path(__file__).resolve().parents[2] / "examples" / "demo"
 
@@ -92,6 +93,31 @@ def cmd_screen(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_universe(args: argparse.Namespace) -> int:
+    fx: dict[str, float] = {}
+    for pair in (args.fx or "").split(","):
+        if "=" in pair:
+            code, _, rate = pair.partition("=")
+            fx[code.strip().upper()] = float(rate)
+
+    markets = [m.strip().upper() for m in args.markets.split(",") if m.strip()]
+    missing = sorted({CURRENCY[m] for m in markets if CURRENCY[m] not in fx})
+    if missing:
+        raise SystemExit(f"missing USD rates for {', '.join(missing)} "
+                         f"(pass --fx {missing[0]}=<usd per unit>)")
+
+    from .universe.yahoo import provider  # optional dependency, imported lazily
+
+    listings = build(markets, min_cap_usd=args.min_cap * 1e9, provider=provider(fx),
+                     fx=fx)
+    write_csv(listings, args.out)
+    print(f"{len(listings)} issuers above {args.min_cap:g} bn USD from {len(markets)} markets "
+          f"→ {args.out}")
+    for item in listings[:args.top]:
+        print(f"  {item.ticker:12}{item.cap_usd / 1e9:8.0f} bn   {item.name[:40]} ({item.market})")
+    return 0
+
+
 def _num(value: str | None) -> float | None:
     try:
         return float(value) if value not in (None, "") else None
@@ -121,6 +147,14 @@ def main(argv: list[str] | None = None) -> int:
     screen.add_argument("table", help="CSV with raw quality inputs and the three model metrics")
     screen.add_argument("--top", type=int, default=10)
     screen.set_defaults(func=cmd_screen)
+
+    universe = sub.add_parser("universe", help="build the issuer list from exchanges")
+    universe.add_argument("--markets", default="US", help="comma separated market codes")
+    universe.add_argument("--min-cap", type=float, default=9.0, help="market cap floor in bn USD")
+    universe.add_argument("--fx", default="USD=1", help="USD rates, e.g. USD=1,PLN=0.25")
+    universe.add_argument("--out", default="universe.csv")
+    universe.add_argument("--top", type=int, default=10)
+    universe.set_defaults(func=cmd_universe)
 
     args = parser.parse_args(argv)
     return args.func(args)

@@ -36,8 +36,9 @@ Working, tested end to end on a synthetic dataset, CI on 3.11 and 3.12.
 | `screener.backtest` | monthly loop: decision → execution → valuation → accounting |
 | `screener.xirr` | XIRR on real dates and time-weighted return |
 | `screener.config` | every threshold and weight, in one place |
+| `screener.universe` | venues → one row per issuer above a cap floor |
 | `screener.data` | adapters: CSV/demo (bundled), Yahoo (optional, prices only) |
-| `screener.cli` | `backtest` and `screen` |
+| `screener.cli` | `universe`, `screen`, `backtest` |
 
 ## Quickstart
 
@@ -47,6 +48,25 @@ pytest
 screener backtest                 # 25 synthetic tickers × 60 months
 screener screen examples/screen/inputs.csv
 ```
+
+The full pipeline, in the order the method runs it:
+
+```bash
+# 1. who exists: exchanges in, one row per issuer above the floor
+pip install -e ".[yahoo]"
+screener universe --markets US,DE,PL --min-cap 9 --fx USD=1,PLN=0.253 --out universe.csv
+
+# 2. who qualifies: the sieve, then the growth score (needs analyst forecasts)
+screener screen companies.csv
+
+# 3. what that would have done: the monthly engine
+screener backtest --data examples/demo
+```
+
+Run the builder over **all** markets in one call: a foreign share is often listed
+locally as a bank certificate ("AAPL C.XGLO PLN") that carries the parent's market
+cap, and only the cross-market issuer dedupe removes it. Screening one market in
+isolation returns those certificates as if they were local companies.
 
 `screener backtest` prints invested capital, TWR, IRR, drawdown, trade count and
 the closing book. `screener screen` applies the sieve to a table of raw inputs
