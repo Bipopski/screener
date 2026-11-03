@@ -13,12 +13,13 @@ jobs:
         python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv venv
-      - run: uv pip install -e ".[dev]"
-      - run: .venv/bin/ruff check .
-      - run: .venv/bin/pytest -q
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: pytest -q
       - name: the CLI runs on the bundled demo
-        run: .venv/bin/screener backtest
+        run: screener backtest
